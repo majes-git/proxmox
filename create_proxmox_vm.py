@@ -138,10 +138,6 @@ def main():
             info('Create temp directory on the server')
             proxmox.run_ssh(f'mkdir {temp_dir}; ls -l /tmp')
 
-            if not args.no_cleanup:
-                info('Cleaning up')
-                proxmox.run_ssh(f'rm -rf {temp_dir}')
-
             info('Downloading image:', args.image)
             proxmox.run_ssh(f'curl -Lo {image} {args.url}')
         else:
@@ -163,6 +159,10 @@ def main():
         info('Converting qcow2 image to LVM thin volume')
         proxmox.run_ssh(f'qemu-img convert -f qcow2 -O raw {image} -S 4096 {disk_path}')
         proxmox.set_image_origin(new_id, image)
+
+        if not args.no_cleanup and args.image.startswith('http'):
+            info('Cleaning up')
+            proxmox.run_ssh(f'rm -rf {temp_dir}')
 
     if args.template:
         info('Converting VM into template')
