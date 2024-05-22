@@ -1,0 +1,6 @@
+cores: 1
+memory: 1024
+ostype: l26
+scsihw: virtio-scsi-pci
+serial0: socket
+vga: serial0
