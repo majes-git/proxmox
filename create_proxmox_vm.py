@@ -139,7 +139,7 @@ def main():
             proxmox.run_ssh(f'mkdir {temp_dir}; ls -l /tmp')
 
             info('Downloading image:', args.image)
-            proxmox.run_ssh(f'curl -Lo {image} {args.url}')
+            proxmox.run_ssh(f'curl -Lo {image} {args.image}')
         else:
             # check if image exists on server
             stdout = proxmox.run_ssh(f'ls {args.image} 2>/dev/null', return_stdout=True).strip()
