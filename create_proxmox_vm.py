@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
+import pathlib
 import requests
 import time
 import uuid
 import yaml
 from getpass import getpass
+from proxmoxer.core import AuthenticationError
 from urllib import parse as urlparse
 
 from lib.config import load_config
@@ -14,11 +17,59 @@ from lib.log import *
 from lib.proxmox import ProxmoxNode
 
 
+CREDENTIALS_FILE = os.path.join(pathlib.Path.home(), '.proxmox_credentials.yaml')
+
+
+def load_credentials(filename):
+    try:
+        with open(filename) as fd:
+            data = yaml.safe_load(fd)
+            if data:
+                debug('Loading credentials from:', filename)
+                return data
+    except FileNotFoundError:
+        pass
+    except:
+        raise
+        warning('Could not access file:', filename)
+    return {}
+
+
+def save_credentials(filename, server, password):
+    data = load_credentials(filename)
+    data.update({ server: password })
+    try:
+        with open(filename, 'w') as fd:
+            info('Saving credentials to:', filename)
+            yaml.dump(data, fd)
+    except:
+        pass
+        warning('Could not access file:', filename)
+
+
+def clean_credentials(filename, server):
+    data = load_credentials(filename)
+    del(data[server])
+    try:
+        with open(filename, 'w') as fd:
+            debug('Cleaning credentials from:', filename)
+            yaml.dump(data, fd)
+    except:
+        pass
+
+
 def get_username_password(args):
     username = args.username
     password = args.password
     if not password:
-        password = getpass('Password:')
+        credentials = load_credentials(CREDENTIALS_FILE)
+        key = args.server
+        if key in credentials:
+            password = credentials.get(key)
+        else:
+            password = getpass('Password:')
+            if not args.no_password_cache:
+                save_credentials(CREDENTIALS_FILE, args.server, password)
     return username, password
 
 
@@ -52,6 +103,8 @@ def parse_arguments():
     parser.add_argument('--id', help='VM ID to be used')
     parser.add_argument('--no-cleanup', action='store_true',
                         help='do not remove downloaded image')
+    parser.add_argument('--no-password-cache', action='store_true',
+                        help='do not cache proxmox passwords')
     parser.add_argument('--assumeyes', '-y', action='store_true',
                         help='answer "yes" for all questions')
     return parser.parse_args()
@@ -99,12 +152,16 @@ def main():
         set_debug()
 
     username, password = get_username_password(args)
-    proxmox = ProxmoxNode(
-        host=args.server,
-        user=username,
-        password=password,
-        ssh_port=args.ssh_port,
-    )
+    try:
+        proxmox = ProxmoxNode(
+            host=args.server,
+            user=username,
+            password=password,
+            ssh_port=args.ssh_port,
+        )
+    except AuthenticationError:
+        clean_credentials(CREDENTIALS_FILE, args.server)
+        error('Proxmox login credentials are not correct')
 
     vm_options = load_defaults(preset=args.preset)
     if args.config:
