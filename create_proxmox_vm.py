@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
 
 import argparse
+import requests
 import time
 import uuid
 import yaml
 from getpass import getpass
+from urllib import parse as urlparse
 
 from lib.config import load_config
 from lib.defaults import load_defaults
@@ -65,8 +67,33 @@ def show_config(config, func=print):
     func(delimiter)
 
 
+def encode_ssh_keys(keys):
+    if keys.startswith('/'):
+        key_file = keys
+        try:
+            with open(key_file) as fd:
+                keys = fd.read()
+                if not keys:
+                    error('There is no key in file:', key_file)
+        except FileNotFoundError:
+            error('Could not find sshkeys file:', key_file)
+        except PermissionError:
+            error('Could not open sshkeys file:', key_file)
+        except:
+            error('Could not read sshkeys file:', key_file)
+
+    if keys.startswith('http'):
+        url = keys
+        try:
+            keys = requests.get(url).text
+        except:
+            error('Could not load sshkeys from url:', url)
+    return urlparse.quote(keys, safe='')
+
+
 def main():
     new_id = 0
+    image = None
     args = parse_arguments()
     if args.debug:
         set_debug()
@@ -85,6 +112,8 @@ def main():
         show_config(vm_options, debug)
         if 'id' in vm_options:
             new_id = vm_options.pop('id', '')
+        if 'image' in vm_options:
+            image = vm_options.pop('image', '')
     else:
         warning('No config file specified. Using defaults only:')
         show_config(vm_options)
@@ -128,45 +157,63 @@ def main():
     if replace:
         proxmox.destroy(new_id)
 
+    # handle ssh_keys
+    if 'sshkeys' in vm_options:
+        ssh_keys = encode_ssh_keys(vm_options['sshkeys'])
+        vm_options['sshkeys'] = ssh_keys
+
     info('Creating VM')
     proxmox.create(new_id, vm_name, vm_options)
 
+    # Find disk_path
+    disk_path = None
+    more_attempts = 5
+    while not disk_path:
+        # trying to read vm config (may take more than one call)
+        disk0 = proxmox.get(new_id).config.get().get('scsi0')
+        if disk0:
+            volume_id = disk0.split(',')[0]
+            disk_path = proxmox.get_disk_path(volume_id)
+        more_attempts -= 1
+        if not more_attempts:
+            error('Could not find disk definition.')
+        time.sleep(1)
+
     if args.image:
-        if args.image.startswith('http'):
+        image = args.image
+
+    if image:
+        if image.startswith('http'):
             temp_dir = f'/tmp/{uuid.uuid4()}'
-            image = f'{temp_dir}/qcow2-image'
+            image_path = f'{temp_dir}/qcow2-image'
             info('Create temp directory on the server')
             proxmox.run_ssh(f'mkdir {temp_dir}; ls -l /tmp')
 
-            info('Downloading image:', args.image)
-            proxmox.run_ssh(f'curl -Lo {image} {args.image}')
+            info('Downloading image:', image)
+            proxmox.run_ssh(f'curl -Lo {image_path} {image}')
         else:
             # check if image exists on server
-            stdout = proxmox.run_ssh(f'ls {args.image} 2>/dev/null', return_stdout=True).strip()
-            if stdout != args.image:
-                error('Image does not exist on the server:', args.image)
-            image = args.image
-
-        disk_path = None
-        while not disk_path:
-            # trying to read vm config (may take more than one call)
-            disk0 = proxmox.get(new_id).config.get().get('scsi0')
-            if disk0:
-                volume_id = disk0.split(',')[0]
-                disk_path = proxmox.get_disk_path(volume_id)
-            time.sleep(1)
+            stdout = proxmox.run_ssh(f'ls {image} 2>/dev/null', return_stdout=True).strip()
+            if stdout != image:
+                error('Image does not exist on the server:', image)
+            image_path = image
 
         info('Converting qcow2 image to LVM thin volume')
-        proxmox.run_ssh(f'qemu-img convert -f qcow2 -O raw {image} -S 4096 {disk_path}')
+        proxmox.run_ssh(f'qemu-img convert -f qcow2 -O raw {image_path} -S 4096 {disk_path}')
         proxmox.set_image_origin(new_id, image)
 
-        if not args.no_cleanup and args.image.startswith('http'):
+        if not args.no_cleanup and image.startswith('http'):
             info('Cleaning up')
             proxmox.run_ssh(f'rm -rf {temp_dir}')
+    else:
+        warn(f'No image provided. Creating an empty {label}')
 
     if args.template:
         info('Converting VM into template')
         proxmox.convert(new_id)
+    elif args.autostart:
+        info('Starting VM')
+        proxmox.start(new_id)
 
 
 if __name__ == '__main__':
