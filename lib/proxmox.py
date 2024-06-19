@@ -1,6 +1,6 @@
 from proxmoxer import ProxmoxAPI
 from proxmoxer.core import ResourceException
-from subprocess import run, PIPE
+from subprocess import run, PIPE, CalledProcessError
 import time
 
 from lib.log import *
@@ -108,7 +108,11 @@ class ProxmoxNode(object):
     def run_ssh(self, command, user='root', return_stdout=False):
         ssh_command = ['ssh', '-p', self.ssh_port, f'{user}@{self.host}', command]
         debug('Run:', ' '.join(ssh_command))
-        result = run(ssh_command, stdout=PIPE, encoding='utf8')
+        try:
+            result = run(ssh_command, stdout=PIPE, check=True, encoding='utf8')
+        except CalledProcessError:
+            error('Could not execute ssh command: "{}"'.format(
+                  ' '.join(ssh_command)))
         if return_stdout:
             return result.stdout
         if result.stdout:
