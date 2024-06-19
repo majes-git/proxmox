@@ -96,8 +96,7 @@ def parse_arguments():
     parser.add_argument('--debug', action='store_true',
                         help='show debug messages')
     parser.add_argument('--preset', help='preset for VM options (e.g. "debian")')
-    parser.add_argument('--base-id', default=100,
-                        help='base ID for virtual machine (template)')
+    parser.add_argument('--base-id', help='base ID for virtual machine (template)')
     parser.add_argument('--replace', action='store_true',
                         help='replaced the VM if exists')
     parser.add_argument('--id', help='VM ID to be used')
@@ -201,7 +200,18 @@ def main():
         if existing_id:
             warning(f'Another {label} with the same name (id: {existing_id}) already exists!')
         if not new_id:
-            new_id = proxmox.get_available_id(args.base_id)
+            # Search for a new id
+            base_id = args.base_id
+            descending = False
+            if base_id:
+                base_id = int(args.base_id)
+            else:
+                base_id = 100
+                if args.template:
+                    base_id = 2000
+            if args.template:
+                descending = True
+            new_id = proxmox.get_available_id(base_id, descending=descending)
 
     info(f'About to create a new {label}:')
     step(f'ID: {new_id}')
@@ -224,9 +234,10 @@ def main():
 
     # Find disk_path
     disk_path = None
-    more_attempts = 5
+    more_attempts = 10
     while not disk_path:
-        # trying to read vm config (may take more than one call)
+        # trying to read vm config
+        # (may take more than one call - depending on the performance of the host)
         disk0 = proxmox.get(new_id).config.get().get('scsi0')
         if disk0:
             volume_id = disk0.split(',')[0]
