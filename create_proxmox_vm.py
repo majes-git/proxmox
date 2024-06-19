@@ -174,6 +174,9 @@ def main():
         warning('No config file specified. Using defaults only:')
         show_config(vm_options)
 
+    if 'scsi0' not in vm_options:
+        error('Your config has no disk specified. Stopping here.')
+
     vm_name = args.name
     label = 'VM'
     if args.template:

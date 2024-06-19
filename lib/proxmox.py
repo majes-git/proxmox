@@ -84,7 +84,8 @@ class ProxmoxNode(object):
     def convert(self, id):
         name = self.get_name(id)
         vm = self.get(id)
-        vm.config.set(description= f'Branched off {name}')
+        description = vm.config.get().get('description')
+        vm.config.set(description=f'Branched off {name} -- {description}')
         vm.template().post()
 
     def destroy(self, id):
