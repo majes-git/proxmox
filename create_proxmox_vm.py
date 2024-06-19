@@ -246,8 +246,12 @@ def main():
             info('Create temp directory on the server')
             proxmox.run_ssh(f'mkdir {temp_dir}; ls -l /tmp')
 
-            info('Downloading image:', image)
+            url_parts = image.split('://')
+            host_location = url_parts[1].split('@')[-1]
+            display_image = f'{url_parts[0]}://{host_location}'
+            info('Downloading image:', display_image)
             proxmox.run_ssh(f'curl -Lo {image_path} {image}')
+            image = display_image
         else:
             # check if image exists on server
             stdout = proxmox.run_ssh(f'ls {image} 2>/dev/null', return_stdout=True).strip()
