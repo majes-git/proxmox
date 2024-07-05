@@ -14,7 +14,7 @@ class ProxmoxNode(object):
         self.password = password
         self.ssh_port = str(ssh_port)
 
-        self.proxmox = ProxmoxAPI(host=host, user=user, password=password)
+        self.proxmox = ProxmoxAPI(host=host, user=user, password=password, **kwargs)
         nodes = [d['node'] for d in self.proxmox.nodes.get()]
         # select node - if not specified, pick the first one
         if node:

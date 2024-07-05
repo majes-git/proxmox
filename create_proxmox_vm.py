@@ -5,6 +5,7 @@ import os
 import pathlib
 import requests
 import time
+import urllib3
 import uuid
 import yaml
 from getpass import getpass
@@ -42,6 +43,7 @@ def save_credentials(filename, server, password):
         with open(filename, 'w') as fd:
             info('Saving credentials to:', filename)
             yaml.dump(data, fd)
+        os.chmod(filename, 0o600)
     except:
         pass
         warning('Could not access file:', filename)
@@ -104,6 +106,8 @@ def parse_arguments():
                         help='do not remove downloaded image')
     parser.add_argument('--no-password-cache', action='store_true',
                         help='do not cache proxmox passwords')
+    parser.add_argument('--insecure', action='store_true',
+                        help='skip TLS certificate validation')
     parser.add_argument('--assumeyes', '-y', action='store_true',
                         help='answer "yes" for all questions')
     return parser.parse_args()
@@ -150,6 +154,11 @@ def main():
     if args.debug:
         set_debug()
 
+    verify_ssl=True
+    if args.insecure:
+        urllib3.disable_warnings()
+        verify_ssl=False
+
     username, password = get_username_password(args)
     try:
         proxmox = ProxmoxNode(
@@ -157,6 +166,7 @@ def main():
             user=username,
             password=password,
             ssh_port=args.ssh_port,
+            verify_ssl=verify_ssl,
         )
     except AuthenticationError:
         clean_credentials(CREDENTIALS_FILE, args.server)
