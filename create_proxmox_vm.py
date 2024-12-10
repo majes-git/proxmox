@@ -284,7 +284,7 @@ def main():
             image_path = image
 
         info('Converting qcow2 image to LVM thin volume')
-        proxmox.run_ssh(f'qemu-img convert -f qcow2 -O raw {image_path} -S 4096 {disk_path}')
+        proxmox.run_ssh(f'qemu-img convert -O raw {image_path} -S 4096 {disk_path}')
         proxmox.set_image_origin(new_id, image)
 
         if not args.no_cleanup and image.startswith('http'):
