@@ -291,7 +291,7 @@ def main():
             info('Cleaning up')
             proxmox.run_ssh(f'rm -rf {temp_dir}')
     else:
-        warn(f'No image provided. Creating an empty {label}')
+        warning(f'No image provided. Creating an empty {label}')
 
     if args.template:
         info('Converting VM into template')
