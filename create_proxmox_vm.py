@@ -10,6 +10,7 @@ import uuid
 import yaml
 from getpass import getpass
 from proxmoxer.core import AuthenticationError
+from proxmoxer.tools import Tasks
 from urllib import parse as urlparse
 
 from lib.config import load_config
@@ -243,7 +244,10 @@ def main():
         vm_options['sshkeys'] = ssh_keys
 
     info('Creating VM')
-    proxmox.create(new_id, vm_name, vm_options)
+    task_id = proxmox.create(new_id, vm_name, vm_options)
+    r = Tasks.blocking_status(proxmox.api, task_id)
+    if r.get('status') == 'stopped' and r.get('exitstatus') != 'OK':
+        error(r.get('exitstatus'))
 
     # Find disk_path
     disk_path = None

@@ -14,8 +14,8 @@ class ProxmoxNode(object):
         self.password = password
         self.ssh_port = str(ssh_port)
 
-        self.proxmox = ProxmoxAPI(host=host, user=user, password=password, **kwargs)
-        nodes = [d['node'] for d in self.proxmox.nodes.get()]
+        self.api = ProxmoxAPI(host=host, user=user, password=password, **kwargs)
+        nodes = [d['node'] for d in self.api.nodes.get()]
         # select node - if not specified, pick the first one
         if node:
             if node not in nodes:
@@ -24,7 +24,7 @@ class ProxmoxNode(object):
             self.node_name = node
         else:
             self.node_name = nodes[0]
-        self.node = self.proxmox.nodes(self.node_name)
+        self.node = self.api.nodes(self.node_name)
         self.get_vm_ids()
 
     def get_vm_ids(self):
@@ -73,7 +73,7 @@ class ProxmoxNode(object):
     def create(self, id, name, vm_options):
         if 'cpu' in vm_options and not vm_options['cpu']:
             del(vm_options['cpu'])
-        self.node.qemu.create(vmid=id, name=name, **vm_options)
+        return self.node.qemu.create(vmid=id, name=name, **vm_options)
 
     def start(self, id):
         self.get(id).status.start.post()
@@ -119,7 +119,7 @@ class ProxmoxNode(object):
             debug('SSH output:', result.stdout)
 
     def find_storage(self, type='lvmthin'):
-        storage_list = self.proxmox.storage.get(type=type)
+        storage_list = self.api.storage.get(type=type)
         if storage_list:
             return storage_list[0].get('storage')
         else:
