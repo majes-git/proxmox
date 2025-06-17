@@ -29,8 +29,9 @@ class ProxmoxNode(object):
 
     def get_vm_ids(self):
         self.vm_ids = []
-        for vm in self.node.qemu.get():
-            self.vm_ids.append(int(vm['vmid']))
+        for vm in self.api.cluster.resources.get():
+            if vm['type'] in ('lxc', 'qemu'):
+                self.vm_ids.append(int(vm['vmid']))
 
     def get_available_id(self, base_id, descending=False):
         increment = 1
