@@ -1,0 +1,4 @@
+image: https://cloud.debian.org/images/cloud/bookworm/latest/debian-12-generic-amd64.qcow2
+cores: 1
+memory: 512
+scsi0: '_lvmthin_:5'

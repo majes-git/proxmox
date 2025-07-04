@@ -188,6 +188,31 @@ def main():
     if 'scsi0' not in vm_options:
         error('Your config has no disk specified. Stopping here.')
 
+    storages = proxmox.find_storages().copy()
+    for disk in [k for k in vm_options.keys() if k.startswith('scsi')]:
+        try:
+            num = int(disk.strip('scsi'))
+        except ValueError:
+        # ignore this option, which is no disk specification
+            continue
+
+        # replace _lvmthin_ by first suitable storage
+        name, size = vm_options[disk].split(':')
+        if name == '_lvmthin_':
+            selected = None
+            for storage, available in storages.items():
+                bytes = int(size) * 2**30
+                if bytes <= available:
+                    if selected:
+                        warning(f'Found more than 1 suitable storages for disk "{disk}". Using storage {selected}.')
+                        break
+                    selected = storage
+                    # update available
+                    storages[selected] -= bytes
+            if not selected:
+                error(f'Could not find suitable storage for disk "{disk}". Stopping here.')
+            vm_options[disk] = vm_options[disk].replace('_lvmthin_', selected)
+
     vm_name = args.name
     label = 'VM'
     if args.template:
