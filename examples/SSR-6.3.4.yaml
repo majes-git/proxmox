@@ -2,7 +2,7 @@ image: https://_ssr_username_:_ssr_token_@software.128technology.com/artifactory
 cores: 4
 cpu: host
 memory: 8192
-net0: virtio,bridge=vmbr4002
+net0: virtio,bridge=vmbr0
 scsi0: '_lvmthin_:64'
 serial0: socket
 vga: serial0
