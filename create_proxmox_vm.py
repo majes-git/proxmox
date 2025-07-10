@@ -17,6 +17,7 @@ from lib.config import load_config
 from lib.defaults import load_defaults
 from lib.log import *
 from lib.proxmox import ProxmoxNode
+from tkinter import Image
 
 
 CREDENTIALS_FILE = os.path.join(pathlib.Path.home(), '.proxmox_credentials.yaml')
@@ -37,12 +38,21 @@ def load_credentials(filename):
     return {}
 
 
-def save_credentials(filename, server, password):
+def save_credentials(filename, server, value, suppress_message=False):
     data = load_credentials(filename)
-    data.update({ server: password })
+    if server in data:
+        _value = data.get(server)
+        if type(_value) == str:
+            data.update({ server: value })
+        if type(_value) == dict:
+            _value.update(value)
+            data.update({ server: _value })
+    else:
+        data.update({ server: value })
     try:
         with open(filename, 'w') as fd:
-            info('Saving credentials to:', filename)
+            if not suppress_message:
+                info('Saving credentials to:', filename)
             yaml.dump(data, fd)
         os.chmod(filename, 0o600)
     except:
@@ -61,18 +71,49 @@ def clean_credentials(filename, server):
         pass
 
 
-def get_username_password(args):
-    username = args.username
-    password = args.password
-    if not password:
+def get_username(prefix):
+    return input(f'Please enter {prefix}: ')
+
+def get_password(prefix):
+    return getpass(f'Please enter {prefix}: ')
+
+def pretty_prefix(prefix):
+    return prefix.strip('_').replace('_', ' ').title().replace('Ssr', 'SSR')
+
+def get_username_password(type, server, username=None, password=None, cache_passwords=True):
+    if username.startswith('_') and username.endswith('_'):
+        prefix_username = pretty_prefix(username)
+        prefix_password = pretty_prefix(password)
+        username = None
+        password = None
+
+    if not (username and password):
         credentials = load_credentials(CREDENTIALS_FILE)
-        key = args.server
-        if key in credentials:
-            password = credentials.get(key)
+
+    if not username and type == 'image':
+        if server in credentials:
+            username = credentials.get(server).get('username')
         else:
-            password = getpass('Password:')
-            if not args.no_password_cache:
-                save_credentials(CREDENTIALS_FILE, args.server, password)
+            username = get_username(prefix_username)
+            if cache_passwords:
+                save_credentials(CREDENTIALS_FILE, server, {'username': username}, suppress_message=True)
+
+    if not password:
+        if type == 'proxmox':
+            if server in credentials:
+                password = credentials.get(server)
+            else:
+                password = get_password(f'Proxmox password for {server}')
+                if cache_passwords:
+                    save_credentials(CREDENTIALS_FILE, server, password)
+        if type == 'image':
+            if server in credentials:
+                password = credentials.get(server).get('password')
+            else:
+                password = get_password(prefix_password)
+                if cache_passwords:
+                    save_credentials(CREDENTIALS_FILE, server, {'password': password})
+
     return username, password
 
 
@@ -160,7 +201,8 @@ def main():
         urllib3.disable_warnings()
         verify_ssl=False
 
-    username, password = get_username_password(args)
+    username, password = get_username_password(
+        'proxmox', args.server, args.username, args.password, not args.no_password_cache)
     try:
         proxmox = ProxmoxNode(
             host=args.server,
@@ -294,16 +336,31 @@ def main():
 
     if image:
         if image.startswith('http'):
+            image_url = image
             temp_dir = f'/tmp/{uuid.uuid4()}'
             image_path = f'{temp_dir}/qcow2-image'
-            info('Create temp directory on the server')
+            info('Creating temp directory on the server')
             proxmox.run_ssh(f'mkdir {temp_dir}; ls -l /tmp')
 
-            url_parts = image.split('://')
+            url_parts = image_url.split('://')
             host_location = url_parts[1].split('@')[-1]
+            host = host_location.split('/')[0]
+            if '@' in url_parts[1]:
+                user_password = url_parts[1].split('@')[0]
+                if ':' not in user_password:
+                    error('Password part is missing in image URL')
+                username, password = get_username_password(
+                    'image', host, *user_password.split(':'), not args.no_password_cache)
+                image_url = f'{url_parts[0]}://{username}:{password}@{host_location}'
+                # test if image can be loaded
+                r = requests.head(image_url)
+                if r.status_code != 200:
+                    # wrong url or credentials
+                    clean_credentials(CREDENTIALS_FILE, host)
+                    error('Image URL cannot be loaded. Please check URL/credentials!')
             display_image = f'{url_parts[0]}://{host_location}'
             info('Downloading image:', display_image)
-            proxmox.run_ssh(f'curl -Lo {image_path} {image}')
+            proxmox.run_ssh(f'curl -Lo {image_path} {image_url}')
             image = display_image
         else:
             # check if image exists on server
