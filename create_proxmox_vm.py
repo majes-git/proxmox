@@ -120,7 +120,7 @@ def get_username_password(type, server, username=None, password=None, cache_pass
 def parse_arguments():
     """Get commandline arguments."""
     parser = argparse.ArgumentParser('create virtual machines and templates on Proxmox')
-    parser.add_argument('name', help='Name of the virtual machine (template)')
+    parser.add_argument('name', nargs='?', help='Name of the virtual machine (template)')
     parser.add_argument('--server', '-s', required=True,
                         help='Proxmox server name/address')
     parser.add_argument('--username', '-u', default='root@pam',
@@ -217,7 +217,10 @@ def main():
 
     vm_options = load_defaults(preset=args.preset)
     if args.config:
-        vm_options.update(load_config(args.config))
+        config = load_config(args.config)
+        if not config:
+            error('Could not load config:', args.config)
+        vm_options.update(config)
         show_config(vm_options, debug)
         if 'id' in vm_options:
             new_id = vm_options.pop('id', '')
@@ -256,9 +259,11 @@ def main():
             vm_options[disk] = vm_options[disk].replace('_lvmthin_', selected)
 
     vm_name = args.name
+    if not vm_name:
+        vm_name = os.path.splitext(os.path.basename(args.config))[0].lower()
     label = 'VM'
     if args.template:
-        vm_name = f'{args.name}-template'
+        vm_name = f'{vm_name}-template'
         label = 'template'
 
     replace = False
