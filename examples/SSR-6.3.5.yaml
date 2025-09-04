@@ -1,0 +1,8 @@
+image: https://_ssr_username_:_ssr_token_@software.128technology.com/artifactory/list/generic-128t-install-images-release-local/6.3/SSR-6.3.5-37.sts.el7.x86_64.ibu-v1.qcow2
+cores: 4
+cpu: host
+memory: 8192
+net0: virtio,bridge=vmbr0
+scsi0: '_lvmthin_:64'
+serial0: socket
+vga: serial0
