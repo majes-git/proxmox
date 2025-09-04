@@ -17,7 +17,6 @@ from lib.config import load_config
 from lib.defaults import load_defaults
 from lib.log import *
 from lib.proxmox import ProxmoxNode
-from tkinter import Image
 
 
 CREDENTIALS_FILE = os.path.join(pathlib.Path.home(), '.proxmox_credentials.yaml')
