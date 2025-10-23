@@ -124,9 +124,9 @@ def parse_arguments():
                         help='Proxmox server name/address')
     parser.add_argument('--username', '-u', default='root@pam',
                         help='username for connecting to proxmox (default: root@pam)')
-    parser.add_argument('--password', '-p',
+    parser.add_argument('--password',
                         help='password for connecting to proxmox')
-    parser.add_argument('--ssh-port', default=22,
+    parser.add_argument('--ssh-port', '-p', default=22,
                         help='SSH port to be used to connect to the server')
     parser.add_argument('--config', '-c',
                         help='config file for VM settings')
