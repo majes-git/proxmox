@@ -364,7 +364,10 @@ def main():
                     error('Image URL cannot be loaded. Please check URL/credentials!')
             display_image = f'{url_parts[0]}://{host_location}'
             info('Downloading image:', display_image)
-            proxmox.run_ssh(f'curl -Lo {image_path} {image_url}')
+            curl_command = f'curl -Lo {image_path} {image_url}'
+            if image_url.endswith('.gz'):
+                curl_command = f'curl -L {image_url} | gunzip -fc > {image_path}'
+            proxmox.run_ssh(curl_command)
             image = display_image
         else:
             # check if image exists on server
