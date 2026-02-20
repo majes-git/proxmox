@@ -1,0 +1,4 @@
+image: https://downloads.openwrt.org/releases/24.10.5/targets/x86/64/openwrt-24.10.5-x86-64-generic-squashfs-combined-efi.img.gz
+cores: 1
+memory: 512
+scsi0: '_lvmthin_:5'
