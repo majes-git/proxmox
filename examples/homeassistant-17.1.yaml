@@ -2,3 +2,4 @@ image: https://github.com/home-assistant/operating-system/releases/download/17.1
 cores: 2
 memory: 2048
 scsi0: '_lvmthin_:32'
+bios: ovmf
