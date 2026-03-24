@@ -367,6 +367,8 @@ def main():
             curl_command = f'curl -Lo {image_path} {image_url}'
             if image_url.endswith('.gz'):
                 curl_command = f'curl -L {image_url} | gunzip -fc > {image_path}'
+            elif image_url.endswith('.xz'):
+                curl_command = f'curl -L {image_url} | unxz -fc > {image_path}'
             proxmox.run_ssh(curl_command)
             image = display_image
         else:
