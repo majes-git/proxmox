@@ -232,7 +232,9 @@ def main():
     if 'scsi0' not in vm_options:
         error('Your config has no disk specified. Stopping here.')
 
-    storages = proxmox.find_storages().copy()
+    _storages_ = proxmox.find_storages()
+    if _storages_:
+        storages = _storages_.copy()
     for disk in [k for k in vm_options.keys() if k.startswith('scsi')]:
         try:
             num = int(disk.strip('scsi'))

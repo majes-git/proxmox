@@ -119,15 +119,16 @@ class ProxmoxNode(object):
         if result.stdout:
             debug('SSH output:', result.stdout)
 
-    def find_storages(self, type='lvmthin'):
-        storage_list = self.api.storage.get(type=type)
-        storages = {}
-        if storage_list:
-            for element in storage_list:
-                name = element.get('storage')
-                available = self.node.storage(name).get('status').get('avail', 0)
-                storages[name] = available
-            return storages
+    def find_storages(self):
+        for type in ('lvmthin', 'zfspool'):
+            storage_list = self.api.storage.get(type=type)
+            storages = {}
+            if storage_list:
+                for element in storage_list:
+                    name = element.get('storage')
+                    available = self.node.storage(name).get('status').get('avail', 0)
+                    storages[name] = available
+                return storages
 
     def get_disk_path(self, volume_id):
         storages = self.find_storages()
