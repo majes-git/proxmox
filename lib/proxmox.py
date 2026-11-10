@@ -13,6 +13,7 @@ class ProxmoxNode(object):
         self.user = user
         self.password = password
         self.ssh_port = str(ssh_port)
+        self.storages = None
 
         self.api = ProxmoxAPI(host=host, user=user, password=password, **kwargs)
         nodes = [d['node'] for d in self.api.nodes.get()]
@@ -129,6 +130,27 @@ class ProxmoxNode(object):
                     available = self.node.storage(name).get('status').get('avail', 0)
                     storages[name] = available
                 return storages
+        return {}
+
+    def get_suitable_storage(self, line):
+        if not self.storages:
+            self.storages = self.find_storages().copy()
+
+        elements = line.split(',')[0].split(':')
+        name = elements[0]
+        try:
+            bytes = int(elements[1]) * 2**30
+        except (ValueError, IndexError):
+            bytes = 1*2**20     # default: 1 Mbytes
+
+        selected = None
+        for storage, available in self.storages.items():
+            if bytes <= available:
+                if selected:
+                    warning(f'Found more than 1 suitable storages. Using storage {selected}.')
+                    break
+                selected = storage
+        return line.replace(name, selected)
 
     def get_disk_path(self, volume_id):
         storages = self.find_storages()
